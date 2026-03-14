@@ -1,9 +1,9 @@
 # translator-pdf2zh-workflow
 
 ## 免费大模型推荐
-1. 火山引擎协作奖励计划：每天使用量会影响次日赠送量，单日最高 200w token，当日满额后次日可达 400w token。  
+1. 火山引擎协作奖励计划：每天使用量会影响次日赠送量，单日最高 `200w` token，当日满额后次日可达 `400w` token。  
    链接：https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement/rewardPlan?
-2. 美团 Longcat：可申请 token 扩容，`Longcat-flash-lite` 每日使用量 5000w token。 `LongCat-Flash-Chat`、`LongCat-Flash-Thinking-2601`、`LongCat-Flash-Omni-2603` 模型申请扩容后每日使用量 500w token
+2. 美团 Longcat：可申请 token 扩容，`Longcat-flash-lite` 每日使用量 5000w token。 `LongCat-Flash-Chat`、`LongCat-Flash-Thinking-2601`、`LongCat-Flash-Omni-2603` 模型申请扩容后每日使用量 `500w` token
    链接：https://longcat.chat/platform/usage
 
 ---
@@ -188,7 +188,7 @@ python skills/translator-pdf2zh-workflow/scripts/run_pdf2zh_pipeline.py \
 
 ---
 
-## 11. 常见问题（小白高频）
+## 11. 常见问题
 
 - 参数不识别：先 `-h`
 - 服务不支持：切兼容参数或切主程序入口
@@ -198,7 +198,7 @@ python skills/translator-pdf2zh-workflow/scripts/run_pdf2zh_pipeline.py \
 
 ---
 
-## 12. 技术原理与实现细节（放最后）
+## 12. 技术原理与实现细节
 
 1. CLI 兼容探测：脚本先读取 `-h`，自动判断用 `--siliconflowfree` 或 `--service siliconflowfree`。  
 2. 参数优先级：运行时参数覆盖 config；未显式传参则回落 config。  

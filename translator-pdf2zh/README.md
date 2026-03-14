@@ -1,207 +1,122 @@
-# translator-pdf2zh-workflow
+# translator-pdf2zh（小白版）
 
-## 免费大模型推荐
-1. 火山引擎协作奖励计划：每天使用量会影响次日赠送量，单日最高 `200w` token，当日满额后次日可达 `400w` token。  
-   链接：https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement/rewardPlan?
-2. 美团 Longcat：可申请 token 扩容，`Longcat-flash-lite` 每日使用量 5000w token。 `LongCat-Flash-Chat`、`LongCat-Flash-Thinking-2601`、`LongCat-Flash-Omni-2603` 模型申请扩容后每日使用量 `500w` token
-   链接：https://longcat.chat/platform/usage
+这个 skill 用来批量调用 `pdf2zh-next` 做 PDF 翻译。
 
----
+## 致谢与来源声明
+- 本 skill 依赖并使用了 **PDFMathTranslate-next / pdf2zh-next** 项目的成果：
+  - https://github.com/PDFMathTranslate-next/PDFMathTranslate-next
+- 本仓库仅提供安全包装与流程化调用，不包含对上游项目的替代。
 
-## 1. 官方文档入口
+## 安全边界（审计可见）
+- 只允许读取：`skills/translator-pdf2zh/config.toml`（相对路径，跨电脑可识别）。
+- 禁止读取 `openclaw.json`。
+- 禁止读写全局 `~/.config/pdf2zh/config.v3.toml`。
+- 不做运行时 `pip install`。
 
-- Advanced（中文）：https://pdf2zh-next.com/zh/advanced/advanced.html  
-- SiliconFlow（中文）：https://pdf2zh-next.com/zh/advanced/TranslationServices/SiliconFlow.html  
-- Python API（中文）：https://pdf2zh-next.com/zh/advanced/API/python.html  
-- PyPI：https://pypi.org/project/pdf2zh-next/
-
----
-
-## 2. 这个 Skill 能做什么
-
-支持 6 类输入：
-1. 单个 PDF
-2. 多个 PDF
-3. 单个文件夹全部 PDF
-4. 单个文件夹部分 PDF
-5. 多个文件夹全部 PDF
-6. 多个文件夹部分 PDF
-
-输出目录始终由用户指定。
+## 审计前置声明（避免“隐式下载”误判）
+- 本脚本本身不内置外部下载逻辑。
+- 但 `pdf2zh-next / babeldoc` 在首次运行时可能自动下载模型/字体/cmap 资产（上游程序行为，不是本 skill 私自下载）。
+- 这些缓存会写入 skill 目录下的 `.cache/`、`.config/`（已与全局配置隔离）。
 
 ---
 
-## 3. 先记住这 4 条规则
+## 1) 环境要求
 
-1. **路径必须是绝对路径**。  
-2. **运行时参数优先于 config.v3.toml**。  
-3. **没在命令里写的参数，如果 config.v3.toml 里有，就用配置文件的值**。  
-4. 默认走 **SiliconFlowFree**，并尽量禁用自动术语表提取。
+### Python
+- **Python 3.11+（必须）**
+  - 原因：脚本使用 `tomllib`（3.11 开始内置）
 
----
-
-## 4. 环境要求
-
-### 4.1 通用
-- Python（建议 3.10~3.13）
-- 能运行 `python --version`
-- 网络可访问翻译服务
-
-### 4.2 Windows
-- 可用 uv/CLI（`pdf2zh_next`）或 exe
-- 你提供的 exe 路径示例：`D:\pdf2zh\pdf2zh.exe`
-- exe 不能运行时先装 VC 运行库：
-  https://aka.ms/vs/17/release/vc_redist.x64.exe
+### pdf2zh-next CLI
+满足任一：
+- 命令可运行：`pdf2zh_next -h`
+- 或你有可执行文件路径：`--exe-path`
 
 ---
 
-## 5. OpenClaw 需要的工具权限（要告知用户）
+## 2) 三端兼容性（Windows / Linux / macOS）
 
-### 必需
-- `exec`
-- `read`
-- `write`
+### 已支持（脚本层面）
+- Windows ✅
+- Linux ✅
+- macOS ✅
 
-### 建议
-- `edit`
-- `process`
-
----
-
-## 6. 配置文件位置
-
-- Linux/macOS：`~/.config/pdf2zh/config.v3.toml`
-- Windows：`C:\Users\<用户名>\.config\pdf2zh\config.v3.toml`
-
-找不到配置时：
-1) 不要自动猜测或创建；
-2) 直接要求用户提供配置文件路径；
-3) 用 `--config-path` 指定。
-
-常见默认位置：
-- Linux/macOS：`~/.config/pdf2zh/config.v3.toml`
-- Windows：`C:\Users\<用户名>\.config\pdf2zh\config.v3.toml`
+### 说明
+- CLI 探测兼容三端（`pdf2zh_next` / `pdf2zh-next` / `pdf2zh`，并含常见 Windows 路径）。
+- 配置路径固定为相对路径 `skills/translator-pdf2zh/config.toml`，不依赖用户主目录。
+- `--visible-monitor`：
+  - Windows：使用 Python 原生新控制台窗口（`CREATE_NEW_CONSOLE`）。
+  - Linux/macOS：无“新窗口”保证，改为当前终端实时日志流（需在交互终端运行）。
 
 ---
 
-## 7. 命令模板（直接改路径就能用）
+## 3) 配置文件
+只用这个文件：
+- `skills/translator-pdf2zh/config.toml`
 
-脚本：`skills/translator-pdf2zh-workflow/scripts/run_pdf2zh_pipeline.py`
+如果你传了别的 `--config-path`，脚本会直接拒绝执行。
 
-### 7.1 单个 PDF
+---
+
+## 4) provider 规则
+- 不传 `--provider`：完全按 `config.toml` 生效。
+- 传 `--provider xxx`：必须同时满足：
+  1) `config.toml` 顶层存在同名布尔开关；
+  2) `pdf2zh_next -h` 里存在官方 `--<Services>` 参数。
+
+例如：
+- `--provider openai` → `--openai`
+- `--provider deepseek` → `--deepseek`
+- `--provider siliconflow` → `--siliconflow`
+
+---
+
+## 5) 调用示例
+
+### 单文件（按 config.toml）
 ```bash
-python skills/translator-pdf2zh-workflow/scripts/run_pdf2zh_pipeline.py \
-  --input-file "{PDF绝对路径}" \
-  --output-dir "{输出目录绝对路径}" \
-  --stream
+python skills/translator-pdf2zh/scripts/run_pdf2zh_pipeline.py \
+  --input-file "C:/path/to/1.pdf" \
+  --output-dir "C:/path/to/out" \
+  --workers 1
 ```
 
-### 7.2 多个 PDF
+### 实时监控
 ```bash
-python skills/translator-pdf2zh-workflow/scripts/run_pdf2zh_pipeline.py \
-  --input-file "{PDF1绝对路径}" \
-  --input-file "{PDF2绝对路径}" \
-  --output-dir "{输出目录绝对路径}" \
-  --stream
+python skills/translator-pdf2zh/scripts/run_pdf2zh_pipeline.py \
+  --input-file "C:/path/to/1.pdf" \
+  --output-dir "C:/path/to/out" \
+  --visible-monitor \
+  --workers 1
 ```
 
-### 7.3 单目录全部 PDF
+### 并行多文件
 ```bash
-python skills/translator-pdf2zh-workflow/scripts/run_pdf2zh_pipeline.py \
-  --input-dir "{输入目录绝对路径}" \
-  --output-dir "{输出目录绝对路径}" \
-  --stream
+python skills/translator-pdf2zh/scripts/run_pdf2zh_pipeline.py \
+  --input-dir "C:/path/to/pdfs" \
+  --output-dir "C:/path/to/out" \
+  --workers 3
 ```
 
-### 7.4 单目录部分 PDF
+### 指定 provider（官方 --<Services>）
 ```bash
-python skills/translator-pdf2zh-workflow/scripts/run_pdf2zh_pipeline.py \
-  --input-dir "{输入目录绝对路径}" \
-  --include-glob "*A*.pdf" \
-  --include-glob "*2024*.pdf" \
-  --output-dir "{输出目录绝对路径}" \
-  --stream
-```
-
-### 7.5 多目录全部 PDF
-```bash
-python skills/translator-pdf2zh-workflow/scripts/run_pdf2zh_pipeline.py \
-  --input-dir "{目录1绝对路径}" \
-  --input-dir "{目录2绝对路径}" \
-  --output-dir "{输出目录绝对路径}" \
-  --stream
-```
-
-### 7.6 多目录部分 PDF
-```bash
-python skills/translator-pdf2zh-workflow/scripts/run_pdf2zh_pipeline.py \
-  --input-dir "{目录1绝对路径}" \
-  --input-dir "{目录2绝对路径}" \
-  --include-glob "*keyword*.pdf" \
-  --output-dir "{输出目录绝对路径}" \
-  --stream
-```
-
-### 7.7 指定 exe（Windows）
-```bash
-python skills/translator-pdf2zh-workflow/scripts/run_pdf2zh_pipeline.py \
-  --input-file "C:\Users\tiandoufayale\Desktop\1.pdf" \
-  --output-dir "C:\Users\tiandoufayale\Desktop" \
-  --exe-path "D:\pdf2zh\pdf2zh.exe" \
-  --stream
+python skills/translator-pdf2zh/scripts/run_pdf2zh_pipeline.py \
+  --input-file "C:/path/to/1.pdf" \
+  --output-dir "C:/path/to/out" \
+  --provider "openaicompatible" \
+  --workers 1
 ```
 
 ---
 
-## 8. Provider 用法
+## 6) 常见问题
 
-- 默认：若用户未指定提供商，agent 将确保配置使用 `siliconflowfree`。
-- 若用户本次明确指定 provider/base_url/api_key：
-  - 由 **agent 直接写入 `config.v3.toml`**；
-  - 启用该 provider；
-  - 将 `siliconflowfree = false`；
-  - 下次运行可不再指定 provider（读取配置文件）。
-- 若用户说“使用当前 agent 所用大模型”：
-  - 由 **agent 读取 openclaw.json 并完成模型类别判断**；
-  - agent 直接把转换结果写入 `config.v3.toml`（仅 anthropic/openaicompatible 等受支持配置）。
-- 脚本不读取 openclaw.json，不负责 provider 智能判断，不负责写入 provider 凭据。
+### Q1: 看不到可见窗口
+- 在 OpenClaw 后台会话中可能看不到桌面窗口。
+- 请在你本机交互终端直接运行命令。
 
----
+### Q2: 提示 provider 不存在
+- 检查 `config.toml` 顶层布尔开关是否有该 key。
+- 检查 `pdf2zh_next -h` 是否有对应 `--<Services>` 参数。
 
-## 9. 参数不确定时（强制流程）
-
-先看帮助再跑：
-- `pdf2zh_next -h`
-- 或 `"{exe绝对路径}" -h`
-
----
-
-## 10. 成功/失败判定
-
-### 成功（必须全满足）
-1. 退出码 0
-2. 日志有 `[ok] all translations finished successfully`
-3. 输出目录有译文 PDF
-
-### 失败
-任一文件报错即停；agent看最后 50~100 行日志定位问题。
-
----
-
-## 11. 常见问题
-
-- 参数不识别：先 `-h`
-- 服务不支持：切兼容参数或切主程序入口
-- 配置找不到：用 `--config-path`
-- 包安装失败：检查 Python 版本
-- 限流：降并发/降 qps
-
----
-
-## 12. 技术原理与实现细节
-
-1. CLI 兼容探测：脚本先读取 `-h`，自动判断用 `--siliconflowfree` 或 `--service siliconflowfree`。  
-2. 参数优先级：运行时参数覆盖 config；未显式传参则回落 config。  
-3. 术语表策略：优先追加 `--no-auto-extract-glossary`，并保持配置里关闭自动保存。  
-4. 失败策略：任一文件失败即停，输出文件名 + 错误摘要 + 关键日志。  
-5. 输出验收：以日志 `[ok]` + 输出目录译文 PDF 双重确认。
+### Q3: 首次运行很慢
+- 可能在下载上游资产（模型/字体/cmap），属于预期行为。

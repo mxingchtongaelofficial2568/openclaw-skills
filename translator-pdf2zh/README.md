@@ -1,6 +1,6 @@
 # translator-pdf2zh（小白版）
 
-这个 skill 用来批量调用 `pdf2zh-next` 做 PDF 翻译。
+这个 skill 用来批量调用 `pdf2zh-next` 做 PDF 翻译。以下内容是对程序功能的解读。
 
 ## 致谢与来源声明
 - 本 skill 依赖并使用了 **PDFMathTranslate-next / pdf2zh-next** 项目的成果：

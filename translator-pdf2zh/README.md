@@ -110,13 +110,9 @@ python skills/translator-pdf2zh/scripts/run_pdf2zh_pipeline.py \
 
 ## 6) 常见问题
 
-### Q1: 看不到可见窗口
-- 在 OpenClaw 后台会话中可能看不到桌面窗口。
-- 请在你本机交互终端直接运行命令。
-
-### Q2: 提示 provider 不存在
+### Q1: 提示 provider 不存在
 - 检查 `config.toml` 顶层布尔开关是否有该 key。
 - 检查 `pdf2zh_next -h` 是否有对应 `--<Services>` 参数。
 
-### Q3: 首次运行很慢
-- 可能在下载上游资产（模型/字体/cmap），属于预期行为。
+### Q2: 首次运行很慢
+- 可能在下载上游资产（模型/字体/cmap），属于预期行为，windows用户推荐使用内置资源包的版本。

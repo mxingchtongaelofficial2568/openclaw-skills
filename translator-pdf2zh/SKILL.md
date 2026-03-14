@@ -40,3 +40,5 @@ python skills/translator-pdf2zh/scripts/run_pdf2zh_pipeline.py \
   --visible-monitor \
   --workers 1
 ```
+## 6) 帮助
+- 如果Agent无法将用户的需求正确转化为pdf2zh_next主程序所能读懂的参数，Agent需要使用参数`-h`功能运行主程序，读取pdf2zh_next主程序输出的参数说明，确定参数的正确用法。或者是读取官方参考文档`https://pdf2zh-next.com/zh/advanced/advanced.html`

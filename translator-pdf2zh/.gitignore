@@ -1,6 +1,0 @@
-.cache/
-.config/
-AppData/
-__pycache__/
-*.pyc
-*.log

@@ -76,7 +76,7 @@ def ensure_output_dir(path: str) -> Path:
 
 
 def read_cli_help_text(base_cmd: list[str]) -> str:
-    cp = subprocess.run([*base_cmd, "-h"], text=True, capture_output=True, check=False)
+    cp = subprocess.run([*base_cmd, "-h"], text=True, capture_output=True, check=False, env=_isolated_env())
     return (cp.stdout or "") + "\n" + (cp.stderr or "")
 
 
@@ -125,7 +125,20 @@ def build_config_arg(help_text: str, config_path: Path) -> list[str]:
 
 
 def _isolated_env() -> dict[str, str]:
-    env = dict(os.environ)
+    # Minimal child env: keep only runtime essentials, drop provider/API secrets by default.
+    keep_keys = {
+        "PATH",
+        "PATHEXT",
+        "SYSTEMROOT",
+        "WINDIR",
+        "COMSPEC",
+        "TEMP",
+        "TMP",
+        "LANG",
+        "LC_ALL",
+    }
+    env = {k: v for k, v in os.environ.items() if k in keep_keys}
+
     isolated_home = str(SKILL_DIR)
     env["HOME"] = isolated_home
     env["USERPROFILE"] = isolated_home
@@ -188,6 +201,11 @@ def main() -> int:
         raise RuntimeError("--workers must be >= 1")
 
     config_path = Path(args.config_path).expanduser().resolve()
+    allowed_config = (SKILL_DIR / "config.toml").resolve()
+    if config_path != allowed_config:
+        raise RuntimeError(
+            f"config-path not allowed: {config_path}. Only this file is allowed: {allowed_config}"
+        )
     if not config_path.exists():
         raise RuntimeError(f"config file not found: {config_path}")
 

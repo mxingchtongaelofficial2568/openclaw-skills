@@ -8,6 +8,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+import os
+import re
+
 import requests
 
 
@@ -66,6 +69,23 @@ class StatusWindow:
             self._q.put('__CLOSE__')
 
 
+def resolve_secret(value: str) -> str:
+    v = (value or '').strip()
+    if v.startswith('${') and v.endswith('}'):
+        return (os.getenv(v[2:-1]) or '').strip()
+    return v
+
+
+def redact(text: str) -> str:
+    if not text:
+        return ''
+    out = text
+    out = re.sub(r'(?i)(authorization\s*:\s*bearer\s+)[^\s"\']+', r'\1***', out)
+    out = re.sub(r'(?i)(api[_-]?key\s*[=:]\s*)[^\s,;"\']+', r'\1***', out)
+    out = re.sub(r'(?i)(token\s*[=:]\s*)[^\s,;"\']+', r'\1***', out)
+    return out
+
+
 def submit_job(pdf_path: Path, job_url: str, api_key: str, model: str, optional_payload: dict) -> str:
     headers = {'Authorization': f'bearer {api_key}'}
     data = {'model': model, 'optionalPayload': json.dumps(optional_payload, ensure_ascii=False)}
@@ -75,7 +95,9 @@ def submit_job(pdf_path: Path, job_url: str, api_key: str, model: str, optional_
             resp = requests.post(job_url, headers=headers, data=data, files={'file': f}, timeout=120)
         if resp.status_code == 200:
             return resp.json()['data']['jobId']
-        last_err = f'{resp.status_code} {resp.text[:300]}'
+        # 仅保留简短且脱敏后的错误预览，避免敏感信息泄露
+        preview = redact((resp.text or '').replace('\n', ' '))[:160]
+        last_err = f'{resp.status_code} {preview}'
         time.sleep(2 * (i + 1))
     raise RuntimeError(f'OCR提交失败: {last_err}')
 
@@ -118,9 +140,9 @@ def fetch_markdown(jsonl_url: str) -> str:
 
 def process_one(pdf: Path, config: dict, ui: StatusWindow) -> dict:
     pconf = config['paddleocr']
-    api_key = (pconf.get('api_key') or '').strip()
+    api_key = resolve_secret((pconf.get('api_key') or '').strip())
     if not api_key:
-        raise ValueError('config.json 缺少 paddleocr.api_key')
+        raise ValueError('config.json 缺少 paddleocr.api_key（可用 ${ENV_VAR} 引用环境变量）')
 
     ui.log(f'[OCR] 提交任务: {pdf}')
     job_id = submit_job(pdf, pconf['job_url'], api_key, pconf['model'], pconf.get('optional_payload', {}))

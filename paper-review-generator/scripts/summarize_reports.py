@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import queue
 import re
 import sys
@@ -82,18 +83,35 @@ def load_prompt(prompt_path: Path, topic: str, direction: str, pdf_path: str, ou
     return text
 
 
+def resolve_secret(value: str) -> str:
+    v = (value or '').strip()
+    if v.startswith('${') and v.endswith('}'):
+        return (os.getenv(v[2:-1]) or '').strip()
+    return v
+
+
+def redact(text: str) -> str:
+    if not text:
+        return ''
+    out = text
+    out = re.sub(r'(?i)(authorization\s*:\s*bearer\s+)[^\s"\']+', r'\1***', out)
+    out = re.sub(r'(?i)(api[_-]?key\s*[=:]\s*)[^\s,;"\']+', r'\1***', out)
+    out = re.sub(r'(?i)(token\s*[=:]\s*)[^\s,;"\']+', r'\1***', out)
+    return out
+
+
 def resolve_provider_config(config: dict) -> tuple[str, str, str]:
     sconf = config['summarizer']
-    provider = sconf.get('provider', 'modelscope')
+    provider = sconf.get('provider', 'openai-compatible')
     providers = sconf.get('providers', {})
     if provider not in providers:
         raise ValueError(f'config.json summarizer.provider 无效: {provider}')
     p = providers[provider]
     base_url = (p.get('base_url') or '').strip()
-    api_key = (p.get('api_key') or '').strip()
+    api_key = resolve_secret((p.get('api_key') or '').strip())
     model = (p.get('model') or '').strip()
     if not base_url or not api_key or not model:
-        raise ValueError(f'config.json summarizer.providers.{provider} 缺少 base_url/api_key/model')
+        raise ValueError(f'config.json summarizer.providers.{provider} 缺少 base_url/api_key/model（api_key 支持 ${'{'}ENV_VAR{'}'}）')
     return base_url, api_key, model
 
 
@@ -116,10 +134,15 @@ def summarize_one(base_url: str, api_key: str, model: str, prompt_template: str,
     ui.log(f'[SUM] 开始: {pdf_path}')
 
     client = OpenAI(base_url=base_url, api_key=api_key)
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[{'role': 'user', 'content': merged_prompt}],
-    )
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{'role': 'user', 'content': merged_prompt}],
+        )
+    except Exception as e:
+        # 避免直接透传可能包含敏感响应体/密钥的原始异常文本
+        em = redact(str(e)).replace('\n', ' ')[:220]
+        raise RuntimeError(f'LLM 调用失败: {e.__class__.__name__}: {em}')
     content = sanitize_report((resp.choices[0].message.content or '').strip())
     if not content:
         raise ValueError(f'模型返回空内容: {pdf_path}')

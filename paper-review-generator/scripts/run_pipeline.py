@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import locale
+import re
 import subprocess
 from pathlib import Path
 
@@ -29,13 +30,23 @@ def collect_pdfs(pdfs: list[str], dir_paths: list[str]) -> list[Path]:
     return out
 
 
+def redact(text: str) -> str:
+    if not text:
+        return ''
+    out = text
+    out = re.sub(r'(?i)(authorization\s*:\s*bearer\s+)[^\s"\']+', r'\1***', out)
+    out = re.sub(r'(?i)(api[_-]?key\s*[=:]\s*)[^\s,;"\']+', r'\1***', out)
+    out = re.sub(r'(?i)(token\s*[=:]\s*)[^\s,;"\']+', r'\1***', out)
+    return out
+
+
 def run_capture(cmd: list[str]) -> str:
     p = subprocess.run(cmd, capture_output=True)
     enc = locale.getpreferredencoding(False) or 'utf-8'
     out = (p.stdout or b'').decode(enc, errors='replace')
     err = (p.stderr or b'').decode(enc, errors='replace')
     if p.returncode != 0:
-        raise RuntimeError(f"命令失败: {' '.join(cmd)}\n{err}")
+        raise RuntimeError(f"命令失败: {' '.join(cmd)}\n{redact(err)}")
     return out
 
 
@@ -45,7 +56,7 @@ def run_with_stdin(cmd: list[str], stdin_text: str) -> str:
     out = (p.stdout or b'').decode(enc, errors='replace')
     err = (p.stderr or b'').decode(enc, errors='replace')
     if p.returncode != 0:
-        raise RuntimeError(f"命令失败: {' '.join(cmd)}\n{err}")
+        raise RuntimeError(f"命令失败: {' '.join(cmd)}\n{redact(err)}")
     return out
 
 

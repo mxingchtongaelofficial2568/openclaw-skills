@@ -1,5 +1,5 @@
 {
-  "use_paddleocr": true,
+  "use_paddleocr": false,
   "paddleocr": {
     "job_url": "https://paddleocr.aistudio-app.com/api/v2/ocr/jobs",
     "model": "PaddleOCR-VL-1.5",
@@ -35,6 +35,16 @@
         "base_url": "https://api.openai.com/v1",
         "api_key": "",
         "model": "gpt-4o-mini"
+      },
+      "volcengine": {
+        "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+        "api_key": "",
+        "model": "doubao-seed-2-0-lite-260215"
+      },
+      "longcat": {
+        "base_url": "https://api.longcat.chat/openai",
+        "api_key": "",
+        "model": "LongCat-Flash-Chat"
       }
     }
   }

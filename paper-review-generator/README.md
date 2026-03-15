@@ -15,7 +15,7 @@
 3. 在 `config.json` 填好密钥：
    - `paddleocr.api_key`（如果你要开 OCR）
    - `summarizer.providers.你选的provider.api_key`
-
+4.推荐的免费大模型平台：火山引擎奖励计划（每日200w至400w的token）、modelscope平台（每日2000次调用）、美团Longcat平台（不同模型每日50w-5000w的token）
 ---
 
 ## 1. 最常用配置（先看这个）
